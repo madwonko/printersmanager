@@ -1,0 +1,35 @@
+# Subnets to scan for printers
+# One subnet per line in CIDR notation
+# Lines starting with # are comments
+
+10.164.1.0/24,Main Street
+10.164.2.0/24,North Main
+10.164.3.0/24,Hethwood
+10.164.4.0/24,South Main
+10.164.5.0/24,Pearisburg
+10.164.6.0/24,Marketplace
+10.164.7.0/24,Pembroke
+10.164.8.0/24,Rich Creek
+10.164.9.0/24,Galax
+10.164.10.0/24,Hubbard
+10.164.11.0/24,Radford
+10.164.12.0/24,Dublin
+10.164.13.0/24,Pulaski
+10.164.14.0/24,Christiansburg
+10.164.15.0/24,Memorial Drive
+10.164.16.0/24,Tazewell Main
+10.164.17.0/24,Richlands
+10.164.19.0/24,Bluefield
+10.164.20.0/24,Fourway
+10.164.21.0/24,Westgate
+10.164.22.0/24,Cumberland
+10.164.23.0/24,Whyteville
+10.164.24.0/24,Sheffield
+10.164.25.0/24,Abingdon
+10.164.26.0/24,Claypool Hill
+10.164.27.0/24,Roanoke
+10.164.30.0/24,Waynesboro
+10.164.31.0/24,Staunton
+10.164.32.0/24,Lynchburg
+
+# Add more subnets below:

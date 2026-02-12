@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Printer Monitoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filters {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 1rem;
+        align-items: end;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .filter-group label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2c3e50;
+    }
+    
+    .filter-group select {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        background: white;
+        cursor: pointer;
+    }
+    
+    .filter-group select:focus {
+        outline: none;
+        border-color: #3498db;
+    }
+    
+    .filter-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .active-filters {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-tag {
+        background: #3498db;
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .filter-tag button {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 0;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .filter-tag button:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1.5rem;">Dashboard</h1>
+
+<!-- Filters -->
+<div class="filters">
+    <div class="filter-group">
+        <label for="location-filter">Location</label>
+        <select id="location-filter">
+            <option value="">All Locations</option>
+            {% for location in locations %}
+            <option value="{{ location }}" {% if current_location == location %}selected{% endif %}>
+                {{ location }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label for="model-filter">Printer Model</label>
+        <select id="model-filter">
+            <option value="">All Models</option>
+            {% for model in models %}
+            <option value="{{ model }}" {% if current_model == model %}selected{% endif %}>
+                {{ model }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="filter-buttons">
+        <button class="btn" onclick="applyFilters()">Apply Filters</button>
+        <button class="btn" onclick="clearFilters()" style="background: #95a5a6;">Clear</button>
+    </div>
+</div>
+
+<!-- Download Report Buttons -->
+<div style="margin-bottom: 1rem; text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+    <button class="btn" onclick="downloadReport()" style="background: #27ae60;">
+        📄 Download Current Status Report
+    </button>
+    <button class="btn" onclick="downloadUsageSummary()" style="background: #2980b9;">
+        📊 Download Usage Summary Report
+    </button>
+</div>
+
+<!-- Active Filters Display -->
+{% if current_location or current_model %}
+<div class="active-filters">
+    <span style="font-weight: 600; color: #7f8c8d;">Active Filters:</span>
+    {% if current_location %}
+    <div class="filter-tag">
+        Location: {{ current_location }}
+        <button onclick="removeFilter('location')">×</button>
+    </div>
+    {% endif %}
+    {% if current_model %}
+    <div class="filter-tag">
+        Model: {{ current_model }}
+        <button onclick="removeFilter('model')">×</button>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total Printers</h3>
+        <div class="value">{{ stats.total_printers }}</div>
+        {% if current_location or current_model %}
+        <div style="font-size: 0.8rem; color: #7f8c8d; margin-top: 0.5rem;">
+            (filtered)
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="stat-card">
+        <h3>Pages (30 Days)</h3>
+        <div class="value">{{ "{:,}".format(stats.total_pages_30_days) }}</div>
+        {% if current_location or current_model %}
+        <div style="font-size: 0.8rem; color: #7f8c8d; margin-top: 0.5rem;">
+            (filtered)
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="stat-card">
+        <h3>Low Toner Alerts</h3>
+        <div class="value {% if stats.low_toner_count > 0 %}status-warning{% endif %}">
+            {{ stats.low_toner_count }}
+        </div>
+        {% if current_location or current_model %}
+        <div style="font-size: 0.8rem; color: #7f8c8d; margin-top: 0.5rem;">
+            (filtered)
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<h2 style="margin-bottom: 1rem;">
+    Printers
+    {% if current_location or current_model %}
+    <span style="font-size: 0.9rem; font-weight: normal; color: #7f8c8d;">
+        ({{ printers|length }} shown)
+    </span>
+    {% endif %}
+</h2>
+
+<div class="printer-grid">
+    {% for printer in printers %}
+    <div class="printer-card" onclick="window.location='/printer/{{ printer.id }}'">
+        <h2>{{ printer.name }}</h2>
+        <div class="meta">
+            {{ printer.ip }} | {{ printer.location }}
+        </div>
+        {% if printer.model %}
+        <div class="meta" style="font-size: 0.85rem; color: #95a5a6;">
+            {{ printer.model }}
+        </div>
+        {% endif %}
+        
+        <div class="metrics">
+            <div class="metric">
+                <label>Total Pages</label>
+                <value>{{ "{:,}".format(printer.total_pages) if printer.total_pages else 'N/A' }}</value>
+            </div>
+            
+            <div class="metric">
+                <label>Toner Level</label>
+                {% if printer.toner_level_pct is not none %}
+                    <value class="{% if printer.toner_level_pct < 20 %}status-critical{% elif printer.toner_level_pct < 50 %}status-warning{% else %}status-ok{% endif %}">
+                        {{ printer.toner_level_pct }}%
+                    </value>
+                    <div class="toner-bar">
+                        <div class="toner-bar-fill {% if printer.toner_level_pct < 20 %}toner-low{% elif printer.toner_level_pct < 50 %}toner-medium{% else %}toner-high{% endif %}" 
+                             style="width: {{ printer.toner_level_pct }}%"></div>
+                    </div>
+                {% elif printer.toner_status %}
+                    <value class="status-ok">{{ printer.toner_status }}</value>
+                {% else %}
+                    <value>N/A</value>
+                {% endif %}
+            </div>
+            
+            {% if printer.drum_level_pct is not none %}
+            <div class="metric">
+                <label>Drum Unit</label>
+                <value class="{% if printer.drum_level_pct < 20 %}status-critical{% elif printer.drum_level_pct < 50 %}status-warning{% else %}status-ok{% endif %}">
+                    {{ printer.drum_level_pct }}%
+                </value>
+            </div>
+            {% endif %}
+            
+            <div class="metric">
+                <label>Last Updated</label>
+                <value style="font-size: 0.85rem;">
+                    {{ printer.last_updated.split('.')[0] if printer.last_updated else 'Never' }}
+                </value>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if printers|length == 0 %}
+<div style="background: white; padding: 3rem; text-align: center; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <h2>No printers found</h2>
+    {% if current_location or current_model %}
+    <p style="margin-top: 1rem; color: #7f8c8d;">No printers match the selected filters.</p>
+    <button class="btn" onclick="clearFilters()" style="margin-top: 1rem;">Clear Filters</button>
+    {% else %}
+    <p style="margin-top: 1rem; color: #7f8c8d;">Run the discovery script to add printers:</p>
+    <code style="display: block; margin-top: 1rem; padding: 1rem; background: #ecf0f1; border-radius: 4px;">
+        python auto_configure_monitoring.py
+    </code>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applyFilters() {
+    const location = document.getElementById('location-filter').value;
+    const model = document.getElementById('model-filter').value;
+    
+    let url = '/';
+    const params = new URLSearchParams();
+    
+    if (location) params.append('location', location);
+    if (model) params.append('model', model);
+    
+    if (params.toString()) {
+        url += '?' + params.toString();
+    }
+    
+    window.location.href = url;
+}
+
+function clearFilters() {
+    window.location.href = '/';
+}
+
+function removeFilter(filterType) {
+    const params = new URLSearchParams(window.location.search);
+    params.delete(filterType);
+    
+    let url = '/';
+    if (params.toString()) {
+        url += '?' + params.toString();
+    }
+    
+    window.location.href = url;
+}
+
+function downloadReport() {
+    const location = document.getElementById('location-filter').value;
+    const model = document.getElementById('model-filter').value;
+    
+    let url = '/download-report?';
+    const params = new URLSearchParams();
+    
+    if (location) params.append('location', location);
+    if (model) params.append('model', model);
+    params.append('days', '30');
+    
+    url += params.toString();
+    window.location.href = url;
+}
+
+function downloadUsageSummary() {
+    const location = document.getElementById('location-filter').value;
+    const model = document.getElementById('model-filter').value;
+    
+    let url = '/download-usage-summary?';
+    const params = new URLSearchParams();
+    
+    if (location) params.append('location', location);
+    if (model) params.append('model', model);
+    params.append('periods', '30,90,120,365');
+    
+    url += params.toString();
+    window.location.href = url;
+}
+
+// Allow Enter key to apply filters
+document.getElementById('location-filter').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') applyFilters();
+});
+
+document.getElementById('model-filter').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') applyFilters();
+});
+</script>
+{% endblock %}
