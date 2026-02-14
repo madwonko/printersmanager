@@ -516,10 +516,11 @@ def generate_usage_summary_pdf(days_periods=[30, 90, 120, 365], location_filter=
         
         where_clause = " AND " + " AND ".join(where_parts) if where_parts else ""
         
-        # Get printer breakdown
+        # Get printer breakdown - NOW WITH IP ADDRESS
         query = f'''
             SELECT 
                 p.name,
+                p.ip,
                 p.location,
                 MAX(m.total_pages) - MIN(m.total_pages) as pages_printed
             FROM printers p
@@ -527,7 +528,7 @@ def generate_usage_summary_pdf(days_periods=[30, 90, 120, 365], location_filter=
             WHERE m.timestamp >= datetime('now', '-' || ? || ' days')
             AND m.total_pages IS NOT NULL
             {where_clause}
-            GROUP BY p.id, p.name, p.location
+            GROUP BY p.id, p.name, p.ip, p.location
             HAVING pages_printed > 0
             ORDER BY pages_printed DESC
         '''
@@ -536,21 +537,24 @@ def generate_usage_summary_pdf(days_periods=[30, 90, 120, 365], location_filter=
         printers = cursor.fetchall()
         
         if printers:
-            printer_data = [['Printer', 'Location', 'Pages Printed']]
+            # Updated header to include IP Address
+            printer_data = [['Printer', 'IP Address', 'Location', 'Pages Printed']]
             
             for printer in printers:
                 printer_data.append([
-                    printer['name'][:25],
-                    printer['location'][:20],
+                    printer['name'][:22],
+                    printer['ip'],
+                    printer['location'][:18],
                     f"{printer['pages_printed']:,}"
                 ])
             
-            printer_table = Table(printer_data, colWidths=[2.5*inch, 2*inch, 1.5*inch])
+            # Updated column widths to accommodate IP address
+            printer_table = Table(printer_data, colWidths=[2.0*inch, 1.2*inch, 1.5*inch, 1.3*inch])
             printer_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+                ('ALIGN', (3, 0), (3, -1), 'RIGHT'),  # Right-align pages printed
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
