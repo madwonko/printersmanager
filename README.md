@@ -2,7 +2,7 @@
 
 A comprehensive SNMP-based printer monitoring solution with web dashboard, automated discovery, and reporting capabilities.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11+-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
@@ -17,6 +17,7 @@ A comprehensive SNMP-based printer monitoring solution with web dashboard, autom
 - [Configuration](#configuration)
 - [Usage](#usage)
   - [Web Dashboard](#web-dashboard)
+  - [Configuration Page](#configuration-page)
   - [Command Line Tools](#command-line-tools)
   - [Automated Monitoring](#automated-monitoring)
 - [Reports](#reports)
@@ -35,6 +36,7 @@ The Printer Monitoring System is a production-ready solution for monitoring netw
 - Automatic network discovery of SNMP-enabled printers
 - Real-time monitoring of toner, drum, and page counts
 - Web-based dashboard with filtering and search
+- Web-based network configuration editor
 - PDF reports for current status and usage summaries
 - Multi-period usage analysis (30, 90, 120, 365 days)
 - Low toner alerts and notifications
@@ -49,6 +51,7 @@ The Printer Monitoring System is a production-ready solution for monitoring netw
 - Subnet-to-location mapping
 - Model identification and metadata extraction
 - Safe duplicate handling (preserves existing data)
+- Web-based subnet configuration editor
 
 ### Monitoring & Metrics
 - **Page Counts:** Total pages printed, usage by time period
@@ -64,10 +67,19 @@ The Printer Monitoring System is a production-ready solution for monitoring netw
 - Interactive charts (7, 14, 30, 60, 90-day views)
 - Individual printer detail pages
 - Editable location assignments
+- Network configuration editor
+
+### Configuration Management
+- Web-based subnet configuration editor
+- Real-time CIDR validation
+- Automatic backup before saving
+- Syntax highlighting and error detection
+- No need to edit files via command line
 
 ### Reporting
 - **Current Status Report:** Snapshot of all printers
 - **Usage Summary Report:** Multi-period analysis (30/90/120/365 days)
+- **IP Address Tracking:** Full printer IP addresses in usage reports
 - PDF exports with professional formatting
 - CSV data exports for external analysis
 - Filtering by location and model
@@ -130,10 +142,11 @@ cd C:\printermanager
 pip install -r requirements.txt
 ```
 
-### 4. Create Logs Directory
+### 4. Create Required Directories
 
 ```powershell
 New-Item -Path "C:\printermanager\logs" -ItemType Directory -Force
+New-Item -Path "C:\printermanager\static" -ItemType Directory -Force
 ```
 
 ### 5. Configure Firewall
@@ -153,7 +166,18 @@ New-NetFirewallRule -DisplayName "Printer Dashboard - Internal" `
 
 ## ⚙️ Configuration
 
-### Network Configuration
+### Network Configuration (Two Methods)
+
+#### Method 1: Web Interface (Recommended)
+
+1. Start the dashboard: `python printer_web_dashboard.py`
+2. Navigate to: http://localhost:5000/configuration
+3. Edit subnets in the web editor
+4. Click "Validate" to check syntax
+5. Click "Save Configuration"
+6. Automatic backup created before saving
+
+#### Method 2: Manual File Edit
 
 Create or edit `C:\printermanager\subnets.txt`:
 
@@ -252,6 +276,38 @@ From the terminal server: **http://localhost:5000**
 - Custom time period selection
 - View command-line instructions
 
+**Configuration Page (NEW):**
+- Edit network subnets via web interface
+- Real-time CIDR validation
+- Automatic backup before saving
+- Syntax highlighting
+- No command-line required
+
+---
+
+### Configuration Page
+
+The new Configuration page allows you to manage network subnets directly from the web interface:
+
+**Access:** http://localhost:5000/configuration
+
+**Features:**
+- ✅ Edit subnets.txt in web browser
+- ✅ Real-time validation (CIDR notation, IP ranges)
+- ✅ Automatic backup before saving
+- ✅ Syntax highlighting
+- ✅ Error detection and warnings
+- ✅ Unsaved changes protection
+- ✅ Reset and validate buttons
+
+**How to Use:**
+1. Navigate to Configuration page
+2. Edit subnet configuration in the text editor
+3. Click "Validate" to check for errors
+4. Click "Save Configuration" when ready
+5. Automatic backup created with timestamp
+6. Run discovery to scan new subnets
+
 ---
 
 ### Command Line Tools
@@ -339,6 +395,7 @@ Register-ScheduledTask -TaskName "Monitor-PrinterDashboard" -Action $action -Tri
 - Active printer count
 - Average pages per printer
 - Detailed breakdown by printer for each period
+- **IP addresses for each printer (NEW)**
 
 **How to generate:**
 - **Web:** Click "Download Usage Summary Report" button
@@ -419,6 +476,13 @@ conn.commit()
 conn.close()
 exit()
 ```
+
+### Configuration Backups
+
+Automatic backups are created when saving subnet configuration via the web interface:
+- Location: `C:\printermanager\`
+- Format: `subnets_backup_YYYYMMDD_HHMMSS.txt`
+- Created: Before each save operation
 
 ### Log Rotation
 
@@ -545,6 +609,17 @@ exit()
 
 Then run: `python printer_monitor.py monitor`
 
+### Configuration Page Issues
+
+**Cannot save subnets:**
+- Check file permissions on `C:\printermanager\subnets.txt`
+- Ensure service has write access
+
+**Validation errors:**
+- Use correct CIDR notation: `10.1.1.0/24`
+- Ensure each line has format: `SUBNET/CIDR,Location Name`
+- Lines starting with `#` are comments
+
 ---
 
 ## 📁 File Structure
@@ -561,11 +636,15 @@ C:\printermanager\
 ├── README.md                      # This file
 ├── printer_monitoring.db          # SQLite database
 ├── subnets.txt                    # Network configuration
+├── subnets_backup_*.txt           # Automatic backups
 ├── templates\                     # HTML templates
 │   ├── base.html
 │   ├── dashboard.html
 │   ├── printer_detail.html
-│   └── settings.html
+│   ├── settings.html
+│   └── configuration.html         # NEW: Subnet editor
+├── static\                        # Static files
+│   └── favicon.ico
 └── logs\                          # Application logs
     ├── dashboard.log
     ├── service.log
@@ -575,6 +654,32 @@ C:\printermanager\
 ---
 
 ## 📝 Changelog
+
+### Version 2.1.0 (2025-02-14)
+**Major Update - Web-Based Configuration**
+
+**Added:**
+- ✨ **Web-based subnet configuration editor** at `/configuration`
+- Real-time CIDR validation in configuration editor
+- Automatic backup creation before saving subnet configuration
+- Syntax highlighting for subnet configuration
+- Unsaved changes warning in configuration editor
+- Reset and validate buttons in configuration interface
+- IP addresses now included in Usage Summary Reports
+- Navigation link to Configuration page in main menu
+
+**Changed:**
+- Enhanced Usage Summary Report to include printer IP addresses
+- Improved table layout in PDF reports for better readability
+- Updated column widths in usage reports to accommodate IP addresses
+- Better error messages in configuration validation
+
+**Fixed:**
+- Duplicate route issue in Flask application
+- Configuration file handling and permissions
+- Backup file naming conflicts
+
+---
 
 ### Version 2.0.0 (2025-02-12)
 **Major Release - Production Deployment**
@@ -692,6 +797,6 @@ For issues, questions, or feature requests:
 
 ---
 
-**Last Updated:** February 12, 2025  
-**Version:** 2.0.0  
+**Last Updated:** February 14, 2025  
+**Version:** 2.1.0  
 **Status:** Production Ready ✅
