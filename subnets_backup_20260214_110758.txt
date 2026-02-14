@@ -28,7 +28,6 @@
 10.164.25.0/24,Abingdon
 10.164.26.0/24,Claypool Hill
 10.164.27.0/24,Roanoke
-10.169.27.0/24,Roanoke
 10.164.30.0/24,Waynesboro
 10.164.31.0/24,Staunton
 10.164.32.0/24,Lynchburg

@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - Printer Monitoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .config-section h2 {
+        margin-bottom: 1rem;
+        color: #2c3e50;
+    }
+    
+    .config-section p {
+        color: #7f8c8d;
+        margin-bottom: 1rem;
+    }
+    
+    textarea {
+        width: 100%;
+        min-height: 300px;
+        padding: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: vertical;
+    }
+    
+    textarea:focus {
+        outline: none;
+        border-color: #3498db;
+    }
+    
+    .button-group {
+        margin-top: 1rem;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .help-text {
+        background: #ecf0f1;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .help-text code {
+        background: #34495e;
+        color: #ecf0f1;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        display: none;
+    }
+    
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1.5rem;">Configuration</h1>
+
+<div id="alert-container"></div>
+
+<div class="config-section">
+    <h2>Network Subnets Configuration</h2>
+    <p>Configure the network subnets to scan for printers. Each line should contain a subnet in CIDR notation and a location name.</p>
+    
+    <div class="help-text">
+        <strong>Format:</strong> <code>SUBNET/CIDR,Location Name</code><br>
+        <strong>Example:</strong> <code>10.164.1.0/24,Main Office</code><br>
+        <strong>Comments:</strong> Lines starting with <code>#</code> are ignored
+    </div>
+    
+    <textarea id="subnets-editor" placeholder="10.164.1.0/24,Main Office
+10.164.2.0/24,North Branch
+192.168.1.0/24,Home Office
+# This is a comment">{{ subnets_content }}</textarea>
+    
+    <div class="button-group">
+        <button class="btn" onclick="saveSubnets()" style="background: #27ae60;">
+            💾 Save Configuration
+        </button>
+        <button class="btn" onclick="resetEditor()" style="background: #95a5a6;">
+            ↺ Reset
+        </button>
+        <button class="btn" onclick="validateSubnets()" style="background: #3498db;">
+            ✓ Validate
+        </button>
+    </div>
+</div>
+
+<div class="config-section">
+    <h2>After Saving</h2>
+    <p style="color: #7f8c8d; margin-bottom: 1rem;">After updating the subnet configuration, run the discovery script to scan for printers:</p>
+    <code style="display: block; padding: 1rem; background: #ecf0f1; border-radius: 4px;">
+        python auto_configure_monitoring.py
+    </code>
+</div>
+
+<div class="config-section">
+    <h2>Configuration Tips</h2>
+    <ul style="color: #7f8c8d; margin-left: 2rem;">
+        <li style="margin-bottom: 0.5rem;">Each subnet must be in valid CIDR notation (e.g., 192.168.1.0/24)</li>
+        <li style="margin-bottom: 0.5rem;">Location names can contain spaces and special characters</li>
+        <li style="margin-bottom: 0.5rem;">Use <code>#</code> at the start of a line for comments</li>
+        <li style="margin-bottom: 0.5rem;">Empty lines are ignored</li>
+        <li style="margin-bottom: 0.5rem;">A backup is automatically created before saving</li>
+    </ul>
+</div>
+
+<script>
+const originalContent = {{ subnets_content|tojson }};
+
+function showAlert(message, type) {
+    const container = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+    alert.style.display = 'block';
+    
+    container.innerHTML = '';
+    container.appendChild(alert);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        alert.style.display = 'none';
+    }, 5000);
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function validateSubnets() {
+    const content = document.getElementById('subnets-editor').value;
+    const lines = content.split('\n');
+    const errors = [];
+    const warnings = [];
+    
+    let validCount = 0;
+    
+    lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        const lineNum = index + 1;
+        
+        // Skip empty lines and comments
+        if (trimmed === '' || trimmed.startsWith('#')) {
+            return;
+        }
+        
+        // Check format
+        if (!trimmed.includes(',')) {
+            errors.push(`Line ${lineNum}: Missing comma separator`);
+            return;
+        }
+        
+        const parts = trimmed.split(',');
+        if (parts.length !== 2) {
+            errors.push(`Line ${lineNum}: Should have exactly one comma`);
+            return;
+        }
+        
+        const subnet = parts[0].trim();
+        const location = parts[1].trim();
+        
+        // Validate CIDR notation
+        const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+        if (!cidrRegex.test(subnet)) {
+            errors.push(`Line ${lineNum}: Invalid CIDR notation "${subnet}"`);
+            return;
+        }
+        
+        // Validate IP octets
+        const ipParts = subnet.split('/')[0].split('.');
+        const invalidOctet = ipParts.find(octet => parseInt(octet) > 255);
+        if (invalidOctet) {
+            errors.push(`Line ${lineNum}: IP octet out of range (0-255)`);
+            return;
+        }
+        
+        // Validate CIDR prefix
+        const prefix = parseInt(subnet.split('/')[1]);
+        if (prefix < 0 || prefix > 32) {
+            errors.push(`Line ${lineNum}: CIDR prefix must be 0-32`);
+            return;
+        }
+        
+        // Check for location
+        if (location === '') {
+            warnings.push(`Line ${lineNum}: Location name is empty`);
+        }
+        
+        validCount++;
+    });
+    
+    // Show results
+    if (errors.length > 0) {
+        showAlert(`Validation failed: ${errors.join('; ')}`, 'error');
+    } else if (warnings.length > 0) {
+        showAlert(`Validation passed with warnings: ${warnings.join('; ')} (${validCount} valid subnets)`, 'success');
+    } else {
+        showAlert(`Validation successful! Found ${validCount} valid subnet(s)`, 'success');
+    }
+}
+
+function saveSubnets() {
+    const content = document.getElementById('subnets-editor').value;
+    
+    // Validate first
+    const lines = content.split('\n');
+    const errors = [];
+    
+    lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed.startsWith('#')) return;
+        
+        if (!trimmed.includes(',')) {
+            errors.push(`Line ${index + 1}: Invalid format`);
+        }
+    });
+    
+    if (errors.length > 0) {
+        if (!confirm('Configuration has errors. Save anyway?')) {
+            return;
+        }
+    }
+    
+    // Save
+    fetch('/api/configuration/save-subnets', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message + ' (Backup created)', 'success');
+        } else {
+            showAlert('Error: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('Error saving configuration: ' + error, 'error');
+    });
+}
+
+function resetEditor() {
+    if (confirm('Reset to original content? Any unsaved changes will be lost.')) {
+        document.getElementById('subnets-editor').value = originalContent;
+        showAlert('Editor reset to original content', 'success');
+    }
+}
+
+// Warn on unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    const current = document.getElementById('subnets-editor').value;
+    if (current !== originalContent) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+</script>
+{% endblock %}

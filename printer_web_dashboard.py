@@ -7,6 +7,8 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, s
 import sqlite3
 from datetime import datetime, timedelta
 import json
+import os
+import shutil
 from io import BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
@@ -731,6 +733,41 @@ def settings():
     """Settings page"""
     printers = get_all_printers()
     return render_template('settings.html', printers=printers)
+
+@app.route('/configuration')
+def configuration():
+    """Configuration page"""
+    # Read subnets.txt
+    subnets_file = "subnets.txt"
+    subnets_content = ""
+    
+    try:
+        with open(subnets_file, 'r') as f:
+            subnets_content = f.read()
+    except FileNotFoundError:
+        subnets_content = "# No subnets.txt file found\n# Format: SUBNET/CIDR,Location Name\n# Example:\n# 10.164.1.0/24,Main Office\n"
+    
+    return render_template('configuration.html', subnets_content=subnets_content)
+
+@app.route('/api/configuration/save-subnets', methods=['POST'])
+def save_subnets():
+    """Save subnets configuration"""
+    data = request.get_json()
+    content = data.get('content', '')
+    
+    try:
+        # Backup existing file
+        if os.path.exists('subnets.txt'):
+            backup_name = f"subnets_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            shutil.copy('subnets.txt', backup_name)
+        
+        # Save new content
+        with open('subnets.txt', 'w') as f:
+            f.write(content)
+        
+        return jsonify({'success': True, 'message': 'Subnets configuration saved successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error saving configuration: {str(e)}'})
 
 # ============================================================================
 # MAIN
